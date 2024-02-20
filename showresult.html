@@ -1,0 +1,13 @@
+<img id="resultImage" alt="Result Image">
+
+<script>
+  function updateImageSrc() {
+    // 使用当前时间戳或生成一个随机数作为版本号，确保每次请求URL都是唯一的
+    var version = new Date().getTime(); // 或者使用 Math.random()
+    var imageUrl = "https://enk5p3psfcoxiq-8000.proxy.runpod.net/resultImage.jpeg?version=" + version;
+    document.getElementById('resultImage').src = imageUrl;
+  }
+
+  // 页面加载时更新图片源
+  updateImageSrc();
+</script>

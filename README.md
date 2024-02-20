@@ -1,1 +1,0 @@
-# PaintX-demo

@@ -37,13 +37,13 @@
      var res;
      var layer=[];
      var xmlhttp = new XMLHttpRequest();
-    xmlhttp.open("GET", "https://enk5p3psfcoxiq-8000.proxy.runpod.net/get_res", false);  // false 表示同步请求
+    xmlhttp.open("GET", "https://q7kzvkqsx2d3xw-7860.proxy.runpod.net/get_res", false);  // false 表示同步请求
     xmlhttp.setRequestHeader("token", "header-token-value");
     xmlhttp.setRequestHeader("dingyi", "header-dingyi-value");
     xmlhttp.send();
 
     window.onload = function() {
-    var imageUrl = "https://enk5p3psfcoxiq-8000.proxy.runpod.net/ordinaryImage.jpeg?version=" + new Date().getTime();
+    var imageUrl = "https://q7kzvkqsx2d3xw-7860.proxy.runpod.net/ordinaryImage.jpeg?version=" + new Date().getTime();
     document.getElementById('dynamicImage').src = imageUrl;
   };
     // 由于是同步请求，此时可以直接获取响应
@@ -83,7 +83,7 @@
 
         function sendImageToServer(base64Image) {
             // 指定服务器端点URL
-            const url = 'https://enk5p3psfcoxiq-8000.proxy.runpod.net/get_result';
+            const url = 'https://q7kzvkqsx2d3xw-7860.proxy.runpod.net/get_result';
 
             // 创建请求体
             const data = { image_base64: base64Image };

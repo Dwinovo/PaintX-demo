@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenPose Skeleton Visualizer</title>
+    <style>
+         /* 原有的样式保留 */
+        /* 新增模态框样式 */
+        .modal {
+            display: none; /* 默认隐藏模态框 */
+            position: fixed; /* 固定定位 */
+            z-index: 1; /* 置于顶层 */
+            left: 0;
+            top: 0;
+            width: 100%; /* 全屏宽 */
+            height: 100%; /* 全屏高 */
+            overflow: auto; /* 启用滚动条 */
+            background-color: rgb(0,0,0); /* 背景色 */
+            background-color: rgba(0,0,0,0.4); /* 黑色背景，略透明 */
+            padding-top: 60px; /* 上内边距 */
+        }
+
+        /* 模态框内容 */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 5% 上下边距，自动左右边距 */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* 宽度 */
+        }
+
+        /* 关闭按钮 */
+        .close {
+            display:none;
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvasContainer">
+        <canvas id="skeletonCanvas"></canvas>
+    </div>
+    <div id="buttonContainer">
+        <button id="sendKeypoints">选择完成</button>
+    </div>
+    <!-- 模态框（排队信息） -->
+    <div id="queueModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <p>您当前处于排队中，请稍候...</p>
+        </div>
+    </div>
+
+    <script>
+    const url = 'https://87227p4d69.vicp.fun/getPoseData';
+    let keypoints = [];
+
+    let connections = [
+        [0, 1], [1, 2], [1, 5], [5, 6], [6, 7], [2, 3], [3, 4],
+        [1, 8], [1, 11], [8, 9], [9, 10], [11, 12], [12, 13],
+        [0, 14], [0, 15], [15, 17], [14, 16]
+    ];
+
+    const canvas = document.getElementById('skeletonCanvas');
+    const ctx = canvas.getContext('2d');
+    let image = new Image();
+
+    const colors = [
+        'rgb(0, 12, 255)', 'rgb(0, 85, 241)', 'rgb(0,181,255)', 'rgb(0,255,246)', 'rgb(0,255,170)',
+        'rgb(0,254,62)', 'rgb(0,255,0)', 'rgb(71,251,0)', 'rgb(163,255,0)', 'rgb(250,255,3)',
+        'rgb(255,166,0)', 'rgb(255,64,0)', 'rgb(248,1,0)', 'rgb(247,4,84)', 'rgb(251,0,189)',
+        'rgb(247,0,255)', 'rgb(181,0,255)', 'rgb(90,0,255)'
+    ];
+
+    function drawTaperedLine(x1, y1, x2, y2, color) {
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        const widthAtBase = 4;
+        const widthAtMid = 10;
+
+        const perpendicularVector = { x: y2 - y1, y: x1 - x2 };
+        const lengthOfPerpendicularVector = Math.sqrt(perpendicularVector.x ** 2 + perpendicularVector.y ** 2);
+        const unitPerpendicularVector = { x: perpendicularVector.x / lengthOfPerpendicularVector, y: perpendicularVector.y / lengthOfPerpendicularVector };
+
+        const vertex1 = { x: x1 + unitPerpendicularVector.x * widthAtBase, y: y1 + unitPerpendicularVector.y * widthAtBase };
+        const vertex2 = { x: x2 + unitPerpendicularVector.x * widthAtBase, y: y2 + unitPerpendicularVector.y * widthAtBase };
+        const vertex3 = { x: midX + unitPerpendicularVector.x * widthAtMid, y: midY + unitPerpendicularVector.y * widthAtMid };
+        const vertex4 = { x: x2 - unitPerpendicularVector.x * widthAtBase, y: y2 - unitPerpendicularVector.y * widthAtBase };
+        const vertex5 = { x: x1 - unitPerpendicularVector.x * widthAtBase, y: y1 - unitPerpendicularVector.y * widthAtBase };
+
+        ctx.beginPath();
+        ctx.moveTo(vertex1.x, vertex1.y);
+        ctx.lineTo(vertex3.x, vertex3.y);
+        ctx.lineTo(vertex2.x, vertex2.y);
+        ctx.lineTo(vertex4.x, vertex4.y);
+        ctx.lineTo(vertex5.x, vertex5.y);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function drawSkeleton(keypoints) {
+        // 确保在绘制之前背景图片已加载
+        if (!image.complete) {
+            console.log("Image not loaded yet.");
+            return;
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        connections.forEach((connection, index) => {
+            const joint1 = keypoints[connection[0]];
+            const joint2 = keypoints[connection[1]];
+            if (joint1 && joint2) { // 确保关节点存在
+                const x1 = joint1.x * canvas.width;
+                const y1 = joint1.y * canvas.height;
+                const x2 = joint2.x * canvas.width;
+                const y2 = joint2.y * canvas.height;
+                drawTaperedLine(x1, y1, x2, y2, colors[index % colors.length]);
+            }
+        });
+
+        keypoints.forEach((joint, index) => {
+            if (joint) { // 确保关节点存在
+                ctx.fillStyle = colors[index % colors.length];
+                ctx.beginPath();
+                ctx.arc(joint.x * canvas.width, joint.y * canvas.height, 7, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        });
+    }
+
+    function fetchKeypoints() {
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            canvas.width = data.width * 2; // 动态设置画布宽度
+            canvas.height = data.height * 2; // 动态设置画布高度
+            const timestamp = new Date().getTime();
+            image.src = `https://87227p4d69.vicp.fun/ordinaryImage.jpeg?version=${timestamp}`; // 设置图片源，替换为你的图片路径
+            image.onload = () => {
+                keypoints = data.keypoints; // 更新关节点数据
+                drawSkeleton(keypoints);
+            };
+        })
+        .catch(error => console.error('Error fetching or parsing keypoints data:', error));
+    }
+    function sendKeypointsData() {
+        const keypointsData = keypoints.map(joint => {
+            return {x: joint.x, y: joint.y};
+        });
+        const taskid = localStorage.getItem('taskid');
+        // 封装keypointsData在data键内
+        const payload = {
+            'data': keypointsData,
+            'taskid':taskid
+        };
+        
+        fetch('https://87227p4d69.vicp.fun/changePose', { // 替换为你的后端接收URL
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload), // 使用payload作为请求体
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message==='wait')
+            {
+                alert("排队中")
+            }
+            else
+            {
+                console.log('Success:', data);
+            // 页面跳转到指定URL
+            window.location.href = 'samImage.html'; // 替换为你的目标页面URL
+            }
+            
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    }
+
+document.getElementById('sendKeypoints').addEventListener('click', sendKeypointsData);
+
+// 绑定事件监听器到按钮
+document.getElementById('sendKeypoints').addEventListener('click', sendKeypointsData);
+
+    document.addEventListener('DOMContentLoaded', fetchKeypoints);
+
+    let selectedJoint = null;
+
+    function isMouseOnJoint(mouseX, mouseY, joint) {
+        const distance = Math.sqrt((mouseX - joint.x * canvas.width) ** 2 + (mouseY - joint.y * canvas.height) ** 2);
+        return distance < 8;
+    }
+    
+
+    canvas.addEventListener('mousedown', function(event) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        keypoints.forEach((joint, index) => {
+            if (isMouseOnJoint(mouseX, mouseY, joint)) {
+                selectedJoint = index;
+            }
+        });
+    });
+
+    canvas.addEventListener('mousemove', function(event) {
+        if (selectedJoint !== null) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            keypoints[selectedJoint].x = mouseX / canvas.width;
+            keypoints[selectedJoint].y = mouseY / canvas.height;
+
+            drawSkeleton(keypoints);
+        }
+    });
+
+    canvas.addEventListener('mouseup', function() {
+        selectedJoint = null;
+    });
+    function showModal() {
+            const modal = document.getElementById("queueModal");
+            modal.style.display = "block";
+        }
+
+        function hideModal() {
+            const modal = document.getElementById("queueModal");
+            modal.style.display = "none";
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const taskid = localStorage.getItem('taskid'); // 从localStorage获取taskid4
+            console.log(taskid)
+            if (taskid) {
+                fetch('https://87227p4d69.vicp.fun/IsEnter', { // 替换为您的后端接口
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ "taskid": taskid }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message === 'wait') {
+                        showModal(); // 显示模态框
+                    } else {
+                        // 进行其他处理，例如开始绘制骨架等
+                        hideModal();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            } else {
+                console.log("No taskid found in localStorage.");
+            }
+        });
+
+        // 绑定关闭模态框事件
+        document.querySelector(".close").addEventListener('click', function() {
+            hideModal();
+        });
+    
+    </script>
+</body>
+</html>

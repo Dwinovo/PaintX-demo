@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Entry Page</title>
+    <style>
+        /* 将按钮居中显示 */
+        .center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="center">
+    <button id="enterButton">进入</button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const taskid = localStorage.getItem('taskid');
+    console.log(taskid);
+    // 检查本地存储中是否已经有taskid
+    if (!taskid) {
+        // 如果没有taskid，则发送请求
+        fetch('https://87227p4d69.vicp.fun/create-task', {
+            method: 'POST',
+        })
+        .then(response => response.json())
+        .then(data => {
+            // 存储taskid到本地存储中
+            localStorage.setItem('taskid', data.taskid);
+            console.log(data.taskid)
+        })
+        .catch(error => console.error('Error:', error));
+    }
+    // 如果已经存在taskid，可以直接使用，或者在这里添加其他逻辑
+});
+
+document.getElementById('enterButton').addEventListener('click', function() {
+    // 点击进入按钮时获取taskid并发送请求
+    const taskid = localStorage.getItem('taskid');
+    fetch('https://87227p4d69.vicp.fun/enter', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({"taskid": taskid }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message === 'enter') {
+            // 根据需求，跳转页面的URL需根据实际情况填写
+            window.location.href = 'uploadpose.html';
+        } else {
+            alert('排队中');
+        }
+    })
+    .catch(error => console.error('Error:', error));
+});
+</script>
+
+</body>
+</html>

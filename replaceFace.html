@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>图片处理</title>
+    <style>
+        /* 模态框（背景） */
+        .modal {
+            display: none; /* 默认隐藏 */
+            position: fixed; /* 固定定位 */
+            z-index: 1; /* 位于顶层 */
+            left: 0;
+            top: 0;
+            width: 100%; /* 全宽 */
+            height: 100%; /* 全高 */
+            overflow: auto; /* 启用滚动条 */
+            background-color: rgb(0,0,0); /* 背景颜色 */
+            background-color: rgba(0,0,0,0.4); /* 黑色背景，略透明 */
+        }
+
+        /* 模态框内容 */
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto; /* 15% 从顶部和自动水平边距 */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* 可以调整模态框宽度 */
+        }
+
+        /* 关闭按钮 */
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <label for="uploadedImage">上传原始图片</label>
+    <input type="file" id="uploadImage" accept="image/*" />
+    <label for="faceImage">上传新脸图片</label>
+    <input type="file" id="faceImage" accept="image/*" />
+    <button id="confirmBtn">开始处理</button>
+    <img id="uploadedImage" style="display:none;"/>
+    <img id="faceImageDisplay" style="display:none;"/>
+    <img id="resultImage" style="display:none;"/>
+
+    <!-- 模态框 -->
+    <div id="myModal" class="modal">
+        <!-- 模态框内容 -->
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <p>请稍候，正在处理...</p>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载时执行的函数
+    function checkTaskStatusOnLoad() {
+        const taskid = localStorage.getItem('taskid'); // 尝试从localStorage获取taskid
+        if (!taskid) {
+            // 如果没有找到taskid，直接提示用户
+            alert("请排队");
+            return; // 终止函数执行
+        }
+
+        // 如果找到了taskid，向后端发送请求以检查任务状态
+        fetch('https://87227p4d69.vicp.fun/IsEnter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({taskid: taskid}),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message === 'wait') {
+                // 如果后端返回的消息是'wait'，显示模态框提示用户排队中
+                modal.style.display = "block";
+                document.querySelector('.modal-content p').textContent = '请排队';
+            }
+            // 如果后端返回的消息不是'wait'，不做特别处理，可以在这里添加其他逻辑
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // 出错时也可以选择显示模态框或者其他用户反馈
+        });
+    }
+
+    window.onload = function() {
+        checkTaskStatusOnLoad(); // 页面加载完毕时调用函数检查任务状态
+        // 你可以在这里添加其他页面加载时需要执行的函数
+    };
+        document.getElementById('uploadImage').addEventListener('change', function() {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = document.getElementById('uploadedImage');
+                img.src = reader.result;
+                img.style.display = 'block';
+            }
+            reader.readAsDataURL(this.files[0]);
+        });
+
+        document.getElementById('faceImage').addEventListener('change', function() {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const img = document.getElementById('faceImageDisplay');
+                img.src = reader.result;
+                img.style.display = 'block';
+            }
+            reader.readAsDataURL(this.files[0]);
+        });
+
+        // 获取模态框元素
+        var modal = document.getElementById('myModal');
+
+        document.getElementById('confirmBtn').addEventListener('click', function() {
+            const uploadedImgBase64 = document.getElementById('uploadedImage').src.split(',')[1];
+            const faceImgBase64 = document.getElementById('faceImageDisplay').src.split(',')[1];
+            const taskid = localStorage.getItem('taskid');
+            // 显示模态框
+            modal.style.display = "block";
+            fetch('https://87227p4d69.vicp.fun/replaceFace', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image_base64: uploadedImgBase64,
+                    face_base64: faceImgBase64,
+                    'taskid':taskid
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.message==='wait')
+                {
+                    alert('请排队')
+                }
+                else
+                {
+                    
+                    document.getElementById('uploadedImage').style.display = 'none';
+                    document.getElementById('faceImageDisplay').style.display = 'none';
+                    const resultImg = document.getElementById('resultImage');
+                    resultImg.src = "https://87227p4d69.vicp.fun/resultAfterFace.jpeg";
+                    resultImg.style.display = 'block';
+                } 
+                // 隐藏模态框
+                modal.style.display = "none";
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                modal.style.display = "none";
+            });
+        });
+
+        // 点击 <span> (x), 关闭模态框
+        document.querySelector('.close').onclick = function() {
+            modal.style.display = "none";
+        }
+    </script>
+</body>
+</html>

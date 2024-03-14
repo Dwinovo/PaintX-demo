@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Image and Convert to Base64 with Enhanced Features</title>
+    <style>
+        /* Existing modal and other styles remain unchanged */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0,0,0);
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%;
+            text-align: center;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #loaderMessage {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <input type="file" id="imageInput" accept="image/*" onchange="encodeAndSendImage()">
+    <img id="imageDisplay" src="#" alt="Image Preview" style="display:none; max-width: 500px;">
+    
+    <div id="myModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <p id="loaderMessage">解析中，请等待...</p>
+        <img id="modalImage" src="#" alt="Backend Image" style="display:none;">
+        <button id="useRecognizedPose" style="display:none;">使用识别到的姿势</button>
+        <button id="useOwnPose" style="display:none;">使用自己的姿势</button>
+      </div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const taskid = localStorage.getItem('taskid');
+    console.log(taskid)
+    if (taskid) {
+        fetch('https://87227p4d69.vicp.fun/IsEnter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ "taskid": taskid }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message === 'wait') {
+                // Show global modal with "Please wait" message
+                showModalGlobal('您正在排队中，请你等待');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    } else {
+        // Show global modal with "Please queue" message if taskid is not present
+        showModalGlobal('您未在队列中，请去首页排队');
+    }
+});
+
+function showModalGlobal(message) {
+    const modal = document.getElementById("myModal");
+    const loaderMessage = document.getElementById("loaderMessage");
+    // Make sure to reset potentially conflicting styles
+    modal.style.display = "block";
+    loaderMessage.innerText = message;
+    loaderMessage.style.display = "block"; // Show the message
+
+    // Hide unnecessary elements
+    document.getElementById("modalImage").style.display = "none";
+    document.getElementById("useRecognizedPose").style.display = "none";
+    document.getElementById("useOwnPose").style.display = "none";
+
+    // Optionally, disable the close button for the global message
+    document.querySelector(".close").style.display = "none";
+}
+function encodeAndSendImage() {
+    const input = document.getElementById('imageInput');
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imageDisplay').src = e.target.result;
+            document.getElementById('imageDisplay').style.display = 'block';
+            const base64 = e.target.result.split(',')[1];
+
+            showModalLoading(); // 显示加载模态框
+            const taskid = localStorage.getItem('taskid');
+            Promise.all([
+                fetch('https://87227p4d69.vicp.fun/Pose', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    
+                    body: JSON.stringify({ 'image_base64': base64,'taskid':taskid }),
+                })
+                .then(response => response.json()),
+                fetch('https://87227p4d69.vicp.fun/segment', { // 更换为第二个端点的URL
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 'image_base64': base64 ,'taskid':taskid}),
+                })
+                .then(response => response.json())
+            ]).then(([base64Image, anotherResponse]) => {
+                // 当所有请求都完成时，检查响应中的message字段
+                if (base64Image.message === 'wait' || anotherResponse.message === 'wait') {
+                    hideModalLoading();
+                    alert('Please wait, your request is being processed.'); // 如果message为wait，则警告用户
+                } else if (base64Image && anotherResponse) {
+                    console.log('Received Base64 Image:', base64Image);
+                    console.log('Received Another Response:', anotherResponse);
+                    showModal(base64Image); // 如果没有wait，则展示模态框
+                } else {
+                    console.error('No Base64 image data received.');
+                }
+            }).catch((error) => {
+                hideModalLoading();
+                console.error('Error:', error);
+            });
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+
+function showModalLoading() {
+    const modal = document.getElementById("myModal");
+    modal.style.display = "block";
+    document.getElementById("loaderMessage").style.display = "block"; // 显示加载信息
+    document.getElementById("modalImage").style.display = "none";
+    document.getElementById("useRecognizedPose").style.display = "none";
+    document.getElementById("useOwnPose").style.display = "none";
+}
+function hideModalLoading() {
+    const modal = document.getElementById("myModal");
+    modal.style.display = "none"; // 隐藏模态框
+    document.getElementById("loaderMessage").style.display = "none"; // 隐藏加载信息
+    // 其它元素的显示状态在这个函数中不需要调整，因为它们默认是隐藏的或者将由其他函数管理
+}
+
+function showModal(base64Image) {
+    document.getElementById("loaderMessage").style.display = "none"; // 隐藏加载信息
+    const cleanBase64Image = base64Image.replace(/^"|"$/g, '');
+    document.getElementById("modalImage").src = `data:image/jpeg;base64,${cleanBase64Image}`;
+    document.getElementById("modalImage").style.display = "block";
+    document.getElementById("useRecognizedPose").style.display = "inline";
+    document.getElementById("useOwnPose").style.display = "inline";
+    
+    document.getElementsByClassName("close")[0].onclick = function() {
+        document.getElementById("myModal").style.display = "none";
+    };
+    document.getElementById('useOwnPose').addEventListener('click', function() {
+        window.location.href = 'changepose.html';
+    });
+    document.getElementById('useRecognizedPose').addEventListener('click', function() {
+        window.location.href = 'samImage.html'; // 为“使用识别到的姿势”按钮添加功能
+    });
+}
+
+</script>
+
+</body>
+</html>

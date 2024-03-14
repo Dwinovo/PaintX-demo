@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>图片更新示例</title>
+<style>
+  /* 模态框样式 */
+  .modal {
+    display: none; /* 默认隐藏 */
+    position: fixed; /* 固定定位 */
+    z-index: 1; /* 位于顶层 */
+    left: 0;
+    top: 0;
+    width: 100%; /* 全屏宽 */
+    height: 100%; /* 全屏高 */
+    overflow: auto; /* 启用滚动条 */
+    background-color: rgb(0,0,0); /* 背景色 */
+    background-color: rgba(0,0,0,0.4); /* 黑色背景，略透明 */
+  }
+
+  /* 模态框内容 */
+  .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% 顶部和自动居中 */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* 宽度 */
+  }
+
+  /* 关闭按钮 */
+  .close {
+    display: none;
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .close:hover,
+  .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+  }
+</style>
+<script>
+  function checkTaskStatus() {
+    const taskid = localStorage.getItem('taskid'); // 假设taskid存储在localStorage
+    if (!taskid) {
+        console.error('taskid not found in localStorage');
+        return;
+    }
+    fetch('https://87227p4d69.vicp.fun/IsEnter', { // 假设这是后端接口的URL
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 如有需要，添加其他必要的头部信息
+      },
+      body: JSON.stringify({taskid: taskid})
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.message === 'wait') {
+        // 显示全局模态框提示用户等待
+        showLoadingModal(true);
+        // 你可以在模态框中显示不同的文本信息
+        document.querySelector('.modal-content p').textContent = '排队中';
+      } else {
+        updateImageSrc("https://87227p4d69.vicp.fun/resultImage.jpeg");
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+  }
+  function updateImageSrc(url) {
+    document.getElementById('resultImage').src = url;
+  }
+
+  function showLoadingModal(show) {
+    var modal = document.getElementById("loadingModal");
+    if (show) {
+      modal.style.display = "block";
+    } else {
+      modal.style.display = "none";
+    }
+  }
+
+  // 页面加载时更新图片源
+  window.onload = function() {
+    checkTaskStatus(); // 在页面加载时检查任务状态
+    // 原有的逻辑保持不变
+    
+  }
+
+  // 发送POST请求并在成功后更新图片地址的函数
+  function upscaleImage() {
+    showLoadingModal(true); // 显示加载模态框
+    const taskid = localStorage.getItem('taskid');
+    fetch('https://87227p4d69.vicp.fun/Upscale', { // 将URL替换为你的后端接口
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // 如有需要，添加其他必要的头部信息
+      },
+      body: JSON.stringify({
+        'taskid': taskid
+      })
+    })
+    .then(response => response.json()) // 确保首先解析JSON响应
+    .then(data => {
+      showLoadingModal(false); // 在适当的时候隐藏加载模态框
+      if (data.message === 'wait') {
+        // 后端返回的message为wait，显示模态框并提示排队中
+        showLoadingModal(true); // 重新显示加载模态框，但用于排队提示
+        document.querySelector('.modal-content p').textContent = '排队中，请稍候...';
+      } else {
+        // 假设后端返回的响应状态是成功，表示请求成功
+        updateImageSrc("https://87227p4d69.vicp.fun/resultAfterUpscale.jpeg");
+        // 隐藏或删除按钮
+        document.getElementById('upscaleButton').style.display='none';
+      }
+    })
+    .catch((error) => {
+      showLoadingModal(false); // 发生错误也要隐藏模态框
+      console.error('Error:', error);
+    });
+}
+
+  function changeFace() {
+    window.location.href = 'replaceFace.html'; // 将URL替换为目标页面的URL
+  }
+</script>
+</head>
+<body>
+<img id="resultImage" alt="结果图片">
+<button id="upscaleButton" onclick="upscaleImage()">点击可以进行高清放大操作</button>
+<button id="faceSwapButton" onclick="changeFace()">点击进行换脸操作</button>
+
+<!-- 加载模态框 -->
+<div id="loadingModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="showLoadingModal(false)">&times;</span>
+    <p>正在高清放大，请等待...</p>
+  </div>
+</div>
+
+</body>
+</html>
